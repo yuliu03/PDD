@@ -5,9 +5,14 @@ from openpyxl import load_workbook, Workbook
 
 #判断是否在活动区间
 def checkTimeRange(tmpPddPayTime, tmpBeginTime, tmpEndTime, range):
-     tmpEndTimePlus = tmpEndTime+datetime.timedelta(seconds=range)
-     result = tmpPddPayTime >= tmpBeginTime and tmpPddPayTime <= tmpEndTimePlus
-     return result
+    try:
+        tmpEndTimePlus = tmpEndTime+datetime.timedelta(seconds=range)
+    except:
+        print("error time")
+
+    result = tmpPddPayTime >= tmpBeginTime and tmpPddPayTime <= tmpEndTimePlus
+
+    return result
 
 
 
@@ -98,8 +103,8 @@ def getPddExcelByFilter(excelPath,beginRow,originalOrderNumList,pddOrderNumPos,p
     return listToReturn
 
 
-#读取活动备案表，输出list[tuple(活动编号,开始时间，结束时间,tuple(pddId,sku,活动价，采购价)]
-def getSecctionExcel(excelPath,sheetName,beginRow,secctionCodePos,secctionBeginTimePos,secctionEndTimePos,secctionPddIdPos,secctionSkuPos,secctionPricePos,secctionPurchasePricePos,filterInfo):
+#读取活动备案表，输出list[tuple(活动编号,开始时间，结束时间,pddId,sku,活动价，采购价,平台补贴，店铺补贴)]
+def getSecctionExcel(excelPath,sheetName,beginRow,secctionCodePos,secctionBeginTimePos,secctionEndTimePos,secctionPddIdPos,secctionSkuPos,secctionPricePos,secctionPurchasePricePos,filterInfo,platformRewardPos,storeRewardPos):
     workBook = load_workbook(excelPath)
     sheet = workBook[sheetName]
     rows = sheet.max_row
@@ -126,11 +131,15 @@ def getSecctionExcel(excelPath,sheetName,beginRow,secctionCodePos,secctionBeginT
             tmpSecctionEndTime =  datetime.datetime(2099, 9, 1)
 
         listToReturn.append((
-        tmpSecctionCode,tmpSecctionBeginTime,tmpSecctionEndTime,
+        tmpSecctionCode,
+        tmpSecctionBeginTime,
+        tmpSecctionEndTime,
         str(sheet.cell(row=i, column=secctionPddIdPos).value).strip().strip(filterInfo),
         str(sheet.cell(row=i, column=secctionSkuPos).value).strip().strip(filterInfo),
         sheet.cell(row=i, column=secctionPricePos).value,
-        sheet.cell(row=i, column=secctionPurchasePricePos).value
+        sheet.cell(row=i, column=secctionPurchasePricePos).value,
+        sheet.cell(row=i, column=platformRewardPos).value,
+        sheet.cell(row=i, column=storeRewardPos).value,
         ))
 
 
@@ -138,7 +147,7 @@ def getSecctionExcel(excelPath,sheetName,beginRow,secctionCodePos,secctionBeginT
 
     return listToReturn
 
-#param：活动备案信息， pdd 订单信息，返回list[(订单编号，活动编号，sku，成本价格，商品名称)]
+#param：活动备案信息， pdd 订单信息，返回list[(订单编号，活动编号，sku，成本价格，商品名称，平台补贴，店铺补贴)]
 def runFinalWork(actSecctionList,pdd,range):
     pddSize = len(pdd) #需要处理订单量
     toReturn = list()
@@ -158,7 +167,7 @@ def runFinalWork(actSecctionList,pdd,range):
 
 
         #遍历所有活动内容
-        #list[tuple(活动编号,开始时间，结束时间,pddId,sku,活动价，采购价)]
+        #list[tuple(活动编号,开始时间，结束时间,pddId,sku,活动价，采购价，平台补贴，店铺补贴)]
         actSheetPos = 1
         for item in actSecctionList:
              actSheetPos = actSheetPos + 1
@@ -179,6 +188,10 @@ def runFinalWork(actSecctionList,pdd,range):
              tmpActPrice = item[5]
              #成本价
              tmpPurchasePrice = item[6]
+             # 平台补贴
+             tmpPlatformReword = item[7]
+             # 店铺补贴
+             tmpStoreReword = item[8]
 
 
 
@@ -196,21 +209,25 @@ def runFinalWork(actSecctionList,pdd,range):
                             basePriceToReturn = tmpPurchasePrice
                             # 商品名称
                             productNameToReturn = tmpPddProName
-                            toReturn.append((ordrNum,tmpActCode, skuToReturn, basePriceToReturn, productNameToReturn))
+                            toReturn.append((ordrNum,tmpActCode, skuToReturn, basePriceToReturn, productNameToReturn,tmpPlatformReword,tmpStoreReword))
                             #跳出活动表循环，准备匹配下一个订单
                             toNext = 1
                             break
 
                 elif "iPhone" in tmpPddProName:
+
                     # 是否是: 同样的sku && 活动价等于商品总价 or 商品id一致(此处的or到时候要改成and)
                     if tmpPddId_actSheet == tmpPddId and (tmpSku_actSheet == tmpPddSku and tmpActPrice == tmpPddProductAllPrice):
+                        # debug
+                        # if tmpPddSku == "190199379954" and tmpSku_actSheet == "190199379954":
+                        #     print()
                         # sku
                         skuToReturn = tmpSku_actSheet
                         # 成本价格
                         basePriceToReturn = tmpPurchasePrice
                         # 商品名称
                         productNameToReturn = tmpPddProName
-                        toReturn.append((ordrNum,tmpActCode, skuToReturn, basePriceToReturn, productNameToReturn))
+                        toReturn.append((ordrNum,tmpActCode, skuToReturn, basePriceToReturn, productNameToReturn,tmpPlatformReword,tmpStoreReword))
                         toNext = 1
                         break
                 #如果是其他
@@ -258,6 +275,33 @@ def checkList(pddListBefore,pddListAfter):
     return listToReturn
 
 
+#标记pdd Excel 中订单对应的活动编码()
+def markActCode(purchaseExcel, pddExcelPath,ordNumPos,toActWritePos,outputPath,toWritePlatformRewordPos,toWriteStoreRewordPos,toWriteBasicPrice):
+    workBook = load_workbook(pddExcelPath)
+    sheet = workBook.active
+    rows = sheet.max_row
+    sheet.cell(row=1, column=toActWritePos, value="活动编码")
+    sheet.cell(row=1, column=toWritePlatformRewordPos, value="平台补贴")
+    sheet.cell(row=1, column=toWriteStoreRewordPos, value="店铺补贴")
+    sheet.cell(row=1, column=toWriteBasicPrice, value="成本")
+    beginRow = 2
+
+    i = beginRow
+    while i <= rows:
+        ordNum = str(sheet.cell(row=i,column=ordNumPos).value.strip().strip(filterInfo))
+        #list[(订单编号，活动编号，sku，成本价格，商品名称，平台补贴，店铺补贴)]
+        for item in purchaseExcel:
+            # sheet.cell(row=i, column=toWritePos, value="item[1]")
+            if item[0] == ordNum:
+                sheet.cell(row=i, column=toWriteActPos,value=item[1])
+                sheet.cell(row=i, column=toWriteBasicPrice, value=item[3])
+                sheet.cell(row=i, column=toWritePlatformRewordPos, value=item[5])
+                sheet.cell(row=i, column=toWriteStoreRewordPos, value=item[6])
+                break
+        i = i + 1
+    workBook.save(outputPath)
+
+
 jieDanExcelPath = "C:/Users/admin/Desktop/截单/jiedan.xlsx"
 jieDanOriginalOrderNumPos = 3
 beginRow = 2
@@ -279,7 +323,7 @@ beginRow = 2
 pddExcel = getPddExcelByFilter(pddExcelPath,beginRow,originalOrderNumList,pddOrderNumPos,pddIdPos,pddSkuPos,pddPayTimePos,productPricePos,proNamePos,pddFilterInfo)
 
 
-pddFinanceExcelPath = "C:/Users/admin/Desktop/截单/活动备案.xlsx"
+pddFinanceExcelPath = "C:/Users/admin/Desktop/截单/huodong.xlsx"
 sheetName = "活动备案"
 secctionCodePos = 3
 secctionBeginTimePos = 4
@@ -288,14 +332,14 @@ secctionSkuPos = 6
 secctionPricePos = 11
 secctionPurchasePricePos = 9
 secctionPddIdPos = 2
+platformRewardPos = 13
+storeRewardPos = 14
 filterInfo = "\t"
 beginRow = 2
-financeDict = getSecctionExcel(pddFinanceExcelPath,sheetName,beginRow,secctionCodePos,secctionBeginTimePos,secctionEndTimePos,secctionPddIdPos,secctionSkuPos,secctionPricePos,secctionPurchasePricePos,filterInfo)
+financeDict = getSecctionExcel(pddFinanceExcelPath,sheetName,beginRow,secctionCodePos,secctionBeginTimePos,secctionEndTimePos,secctionPddIdPos,secctionSkuPos,secctionPricePos,secctionPurchasePricePos,filterInfo,platformRewardPos,storeRewardPos)
 print(financeDict)
 
 
-# tmpFinanceDict =
-# tmpPddExcel =
 #活动浮动区间
 range = 18000
 purchaseExcel=runFinalWork(financeDict,pddExcel,range)
@@ -306,26 +350,12 @@ faultList = checkList(pddExcel,purchaseExcel)
 #分类汇总数据
 finalInfo = clssify(purchaseExcel)
 
-#标记pdd Excel 中订单对应的活动编码
-def markActCode(purchaseExcel, pddExcelPath,ordNumPos,toWritePos,outputPath):
-    workBook = load_workbook(pddExcelPath)
-    sheet = workBook.active
-    rows = sheet.max_row
-    beginRow = 2
-    i = beginRow
-    while i <= rows:
-        ordNum = str(sheet.cell(row=i,column=ordNumPos).value.strip().strip(filterInfo))
-        #list[(订单编号，活动编号，sku，成本价格，商品名称)]
-        for item in purchaseExcel:
-            if item[0] == ordNum:
-                sheet.cell(row=i, column=toWritePos,value=item[1])
-                break
-        i = i + 1
-    workBook.save(outputPath)
-
-toWritePos = 56
+toWriteActPos = 56
+toWritePlatformRewordPos = 57
+toWriteStoreRewordPos = 58
+toWriteBasicPricePos = 59
 outputPath = "C:/Users/admin/Desktop/截单/pddTestWithActCode.xlsx"
-markActCode(purchaseExcel,pddExcelPath,pddOrderNumPos,toWritePos,outputPath)
+markActCode(purchaseExcel,pddExcelPath,pddOrderNumPos,toWriteActPos,outputPath,toWritePlatformRewordPos,toWriteStoreRewordPos,toWriteBasicPricePos)
 
 print("________备案表获取结果 financeDict________________")
 print(len(financeDict))
@@ -358,5 +388,5 @@ print()
 
 
 
-outFilepath = "C:/Users/admin/Desktop/test/outPut.xlsx"
+outFilepath = "C:/Users/admin/Desktop/截单/outPut.xlsx"
 createExcel(outFilepath,finalInfo)
