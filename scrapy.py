@@ -92,11 +92,11 @@ loginChooseBtn.click()
 wait = WebDriverWait(driver, waitTime)
 wait.until(EC.presence_of_element_located((By.XPATH, userId)))
 userName = driver.find_element_by_xpath(userId)
-userName.send_keys("物产数码_刘愉")
+userName.send_keys("13819100432")
 
 wait.until(EC.presence_of_element_located((By.XPATH, password)))
 userName = driver.find_element_by_xpath(password)
-userName.send_keys("Ly123456")
+userName.send_keys("Wcds123456")
 
 #submitBtn
 time.sleep(0.5)

@@ -14,8 +14,6 @@ def checkTimeRange(tmpPddPayTime, tmpBeginTime, tmpEndTime, range):
 
     return result
 
-
-
 #生成excel
 #dict[(sku,活动编号，成本价格)]{(商品名称,数量)}
 def createExcel(outFilepath,dictInfo):
@@ -49,7 +47,6 @@ def createExcel(outFilepath,dictInfo):
 
     newWb.save(outFilepath)
 
-
 #读取截单数据，输出list[原始单号]
 def getJieDanExcel(excelPath,originalOrderNumPos,filterInfo,beginRow):
     workBook = load_workbook(excelPath)
@@ -64,9 +61,9 @@ def getJieDanExcel(excelPath,originalOrderNumPos,filterInfo,beginRow):
         i = i + 1
     return listToReturn
 
-
 #读取拼多多表，截单list[原始单号]，根据原始单号过滤，输出list[tuple（订单号，pddIdPos,sku，支付时间，商品总价,商品名称）]
 def getPddExcelByFilter(excelPath,beginRow,originalOrderNumList,pddOrderNumPos,pddIdPos,pddSkuPos,pddPayTimePos,productPricePos,proNamePos,filterInfo):
+    print("读取截单表中...")
     workBook = load_workbook(excelPath)
     sheet = workBook.active
     rows = sheet.max_row
@@ -91,7 +88,7 @@ def getPddExcelByFilter(excelPath,beginRow,originalOrderNumList,pddOrderNumPos,p
                 tmpProName = str(sheet.cell(row=i, column=proNamePos).value).strip().strip(filterInfo)
                 listToReturn.append((tmpOrderNum,tmpPddId,tmpSku,tmpPayTime,tmpProductPrice,tmpProName))
 
-                #从list中删除以处理的数据，缩短丽水
+                #从list中删除以处理的数据，缩短
                 originalOrderNumList.pop(j)
                 #跳出循环
                 break
@@ -102,9 +99,9 @@ def getPddExcelByFilter(excelPath,beginRow,originalOrderNumList,pddOrderNumPos,p
     print(originalOrderNumList)
     return listToReturn
 
-
 #读取活动备案表，输出list[tuple(活动编号,开始时间，结束时间,pddId,sku,活动价，采购价,平台补贴，店铺补贴)]
 def getSecctionExcel(excelPath,sheetName,beginRow,secctionCodePos,secctionBeginTimePos,secctionEndTimePos,secctionPddIdPos,secctionSkuPos,secctionPricePos,secctionPurchasePricePos,filterInfo,platformRewardPos,storeRewardPos):
+    print("读取活动备案表中...")
     workBook = load_workbook(excelPath)
     sheet = workBook[sheetName]
     rows = sheet.max_row
@@ -152,7 +149,6 @@ def runFinalWork(actSecctionList,pdd,range):
     pddSize = len(pdd) #需要处理订单量
     toReturn = list()
 
-
     count = 0
     while count < pddSize:
         toNext = 0 #如果已经找到对应商品，就标志
@@ -193,13 +189,32 @@ def runFinalWork(actSecctionList,pdd,range):
              # 店铺补贴
              tmpStoreReword = item[8]
 
-
+             # if "200601-643406234262616" == ordrNum:
+             #    print()
 
             #判断是否在活动区间
              if checkTimeRange(tmpPddPayTime,tmpBeginTime,tmpEndTime,range):
-                #如果是iphone
-                if "iPad" in tmpPddProName:
-                    # 是否是: 同样的sku &&
+                #如果是AirPods
+                if "AirPods" in tmpPddProName:
+                    # 是否是: 同样的sku && 活动价等于商品总价 && 商品id一致
+                    if tmpPddId_actSheet == tmpPddId and (
+                            tmpSku_actSheet == tmpPddSku and tmpActPrice == tmpPddProductAllPrice):
+                        # debug
+                        # if  tmpPddSku == "190199227750" and tmpSku_actSheet == "190199227750":
+                        #     print()
+                        # sku
+                        skuToReturn = tmpSku_actSheet
+                        # 成本价格
+                        basePriceToReturn = tmpPurchasePrice
+                        # 商品名称
+                        productNameToReturn = tmpPddProName
+                        toReturn.append((ordrNum, tmpActCode, skuToReturn, basePriceToReturn, productNameToReturn,
+                                         tmpPlatformReword, tmpStoreReword))
+                        toNext = 1
+                        break
+                #如果是iPad
+                elif "iPad" in tmpPddProName:
+                    # 是否是: 同样的sku
                     if tmpSku_actSheet == tmpPddSku:
                         # 活动价等于商品总价
                         if tmpActPrice == tmpPddProductAllPrice:
@@ -215,11 +230,10 @@ def runFinalWork(actSecctionList,pdd,range):
                             break
 
                 elif "iPhone" in tmpPddProName:
-
-                    # 是否是: 同样的sku && 活动价等于商品总价 or 商品id一致(此处的or到时候要改成and)
+                    # 是否是: 同样的sku && 活动价等于商品总价 && 商品id一致
                     if tmpPddId_actSheet == tmpPddId and (tmpSku_actSheet == tmpPddSku and tmpActPrice == tmpPddProductAllPrice):
                         # debug
-                        # if tmpPddSku == "190199379954" and tmpSku_actSheet == "190199379954":
+                        # if  tmpPddSku == "190199227750" and tmpSku_actSheet == "190199227750":
                         #     print()
                         # sku
                         skuToReturn = tmpSku_actSheet
@@ -236,7 +250,6 @@ def runFinalWork(actSecctionList,pdd,range):
 
         count = count + 1
     return toReturn
-
 
 #商品分类汇总计算数量。 param: list[(订单编号，活动编号，sku，成本价格，商品名称)]; return: dict[(sku,活动编号，成本价格)]{(商品名称,数量)}
 def clssify(purchaseList):
@@ -274,20 +287,31 @@ def checkList(pddListBefore,pddListAfter):
 
     return listToReturn
 
-
 #标记pdd Excel 中订单对应的活动编码()
-def markActCode(purchaseExcel, pddExcelPath,ordNumPos,toActWritePos,outputPath,toWritePlatformRewordPos,toWriteStoreRewordPos,toWriteBasicPrice):
+def markActCode(purchaseExcel, pddExcelPath,ordNumPos,outputPath):
+    print("读取拼多多明细表中...")
     workBook = load_workbook(pddExcelPath)
     sheet = workBook.active
     rows = sheet.max_row
-    sheet.cell(row=1, column=toActWritePos, value="活动编码")
-    sheet.cell(row=1, column=toWritePlatformRewordPos, value="平台补贴")
-    sheet.cell(row=1, column=toWriteStoreRewordPos, value="店铺补贴")
-    sheet.cell(row=1, column=toWriteBasicPrice, value="成本")
+    cols = sheet.max_column
+    toWriteActPos  = cols + 1
+    toWritePlatformRewordPos = cols + 2
+    toWriteStoreRewordPos = cols + 3
+    toWriteBasicPrice = cols + 4
+    toWriteFinalReword =cols + 5
+    #拼多多对账明细的店铺补贴字段位置
+    pdd_storeRewordPos = 5
+
+    sheet.cell(row=1, column=toWriteActPos, value="活动备案表_活动编码")
+    sheet.cell(row=1, column=toWritePlatformRewordPos, value="活动备案表_平台补贴")
+    sheet.cell(row=1, column=toWriteStoreRewordPos, value="活动备案表_店铺补贴")
+    sheet.cell(row=1, column=toWriteBasicPrice, value="活动备案表_成本")
+    sheet.cell(row=1, column=toWriteFinalReword, value="补贴金额")
     beginRow = 2
 
     i = beginRow
     while i <= rows:
+        print("填充补贴、活动编号等数据到拼多多明细表："+str(i)+"/"+str(rows))
         ordNum = str(sheet.cell(row=i,column=ordNumPos).value.strip().strip(filterInfo))
         #list[(订单编号，活动编号，sku，成本价格，商品名称，平台补贴，店铺补贴)]
         for item in purchaseExcel:
@@ -297,10 +321,66 @@ def markActCode(purchaseExcel, pddExcelPath,ordNumPos,toActWritePos,outputPath,t
                 sheet.cell(row=i, column=toWriteBasicPrice, value=item[3])
                 sheet.cell(row=i, column=toWritePlatformRewordPos, value=item[5])
                 sheet.cell(row=i, column=toWriteStoreRewordPos, value=item[6])
+
+                #活动编号不为空
+                if item[1] is not None and item[1] != "":
+                    #店铺补贴不为空 && 店铺补贴等于多多对账明细的店铺补贴
+                    if item[6] is not None and str(item[6]) == str(sheet.cell(row=i, column=pdd_storeRewordPos).value):
+                        sheet.cell(row=i, column=toWriteFinalReword, value=float(item[5]) + float(item[6])) #店铺补贴 + 平台补贴
+                    #非空校验
+                    elif sheet.cell(row=i, column=pdd_storeRewordPos).value is not None and \
+                            sheet.cell(row=i, column=pdd_storeRewordPos).value != "":
+                            #判断金额
+                            if float(str(sheet.cell(row=i, column=pdd_storeRewordPos).value)) == 0:
+                                sheet.cell(row=i, column=toWriteFinalReword, value=float(item[6])) #平台补贴
                 break
         i = i + 1
     workBook.save(outputPath)
 
+#生成未符合标准订单表
+def creatFaultListExcel(faultList,faultOrderExcelPath):
+    print("开始生成未符合标准订单表")
+    newWb = Workbook()
+
+    newSheet = newWb.active
+
+    # 填写字段抬头
+    beginRow = 1
+    newSheet.cell(row=beginRow, column=1, value="订单号")
+    newSheet.cell(row=beginRow, column=2, value="pdd Id")
+    newSheet.cell(row=beginRow, column=3, value="商品sku编码")
+    newSheet.cell(row=beginRow, column=4, value="支付时间")
+    newSheet.cell(row=beginRow, column=5, value="支付金额")
+    newSheet.cell(row=beginRow, column=6, value="商品名称")
+
+    beginRow = beginRow + 1
+    size = len(faultList)
+
+    while beginRow <= size:
+        item = faultList[beginRow - 1]
+        newSheet.cell(row=beginRow, column=1, value=item[0])
+        newSheet.cell(row=beginRow, column=2, value=item[1])
+        newSheet.cell(row=beginRow, column=3, value=item[2])
+        newSheet.cell(row=beginRow, column=4, value=item[3])
+        newSheet.cell(row=beginRow, column=5, value=item[4])
+        newSheet.cell(row=beginRow, column=6, value=item[5])
+        beginRow = beginRow + 1
+
+    newWb.save(faultOrderExcelPath)
+
+#处理未符合标准订单，param： list[tuple（订单号，pddIdPos,sku，支付时间，商品总价,商品名称）
+def dealFaultData(faultList,actData):
+    #遍历所有的未符合标准订单
+    for item in faultList:
+        #获取支付时间
+        tmpPayTime = item[3]
+        #初始化时间差
+        lessDistance = 99999999
+        #遍历活动信息
+        for eachAct in actData:
+            #判断基本条件（）
+            pass
+        pass
 
 jieDanExcelPath = "C:/Users/admin/Desktop/截单/jiedan.xlsx"
 jieDanOriginalOrderNumPos = 3
@@ -340,8 +420,8 @@ financeDict = getSecctionExcel(pddFinanceExcelPath,sheetName,beginRow,secctionCo
 print(financeDict)
 
 
-#活动浮动区间
-range = 18000
+#活动浮动区间 秒
+range = 0
 purchaseExcel=runFinalWork(financeDict,pddExcel,range)
 
 #检查未符合标准的订单
@@ -350,12 +430,12 @@ faultList = checkList(pddExcel,purchaseExcel)
 #分类汇总数据
 finalInfo = clssify(purchaseExcel)
 
-toWriteActPos = 56
-toWritePlatformRewordPos = 57
-toWriteStoreRewordPos = 58
-toWriteBasicPricePos = 59
+#生成未符合标准商品（疑似未在活动内的订单）
+faultOrderExcelPath = "C:/Users/admin/Desktop/截单/未符合标准商品（疑似未在活动内的订单）.xlsx"
+creatFaultListExcel(faultList,faultOrderExcelPath)
+
 outputPath = "C:/Users/admin/Desktop/截单/pddTestWithActCode.xlsx"
-markActCode(purchaseExcel,pddExcelPath,pddOrderNumPos,toWriteActPos,outputPath,toWritePlatformRewordPos,toWriteStoreRewordPos,toWriteBasicPricePos)
+markActCode(purchaseExcel,pddExcelPath,pddOrderNumPos,outputPath)
 
 print("________备案表获取结果 financeDict________________")
 print(len(financeDict))
@@ -376,7 +456,7 @@ print(len(purchaseExcel))
 print(purchaseExcel)
 print()
 
-print("______________未符合标准商品:________")
+print("______________未符合标准商品（疑似未在活动内的订单）:________")
 print(len(faultList))
 print(faultList)
 print()
@@ -385,7 +465,6 @@ print("______________分类汇总最终结果 finalInfo________")
 print(len(finalInfo))
 print(finalInfo)
 print()
-
 
 
 outFilepath = "C:/Users/admin/Desktop/截单/outPut.xlsx"
