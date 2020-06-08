@@ -1,3 +1,4 @@
+import copy
 import datetime
 
 from openpyxl import load_workbook, Workbook
@@ -189,9 +190,6 @@ def runFinalWork(actSecctionList,pdd,range):
              # 店铺补贴
              tmpStoreReword = item[8]
 
-             # if "200601-643406234262616" == ordrNum:
-             #    print()
-
             #判断是否在活动区间
              if checkTimeRange(tmpPddPayTime,tmpBeginTime,tmpEndTime,range):
                 #如果是AirPods
@@ -354,10 +352,11 @@ def creatFaultListExcel(faultList,faultOrderExcelPath):
     newSheet.cell(row=beginRow, column=6, value="商品名称")
 
     beginRow = beginRow + 1
+    indexPos = 0
     size = len(faultList)
 
-    while beginRow <= size:
-        item = faultList[beginRow - 1]
+    while indexPos < size:
+        item = faultList[indexPos]
         newSheet.cell(row=beginRow, column=1, value=item[0])
         newSheet.cell(row=beginRow, column=2, value=item[1])
         newSheet.cell(row=beginRow, column=3, value=item[2])
@@ -365,22 +364,141 @@ def creatFaultListExcel(faultList,faultOrderExcelPath):
         newSheet.cell(row=beginRow, column=5, value=item[4])
         newSheet.cell(row=beginRow, column=6, value=item[5])
         beginRow = beginRow + 1
+        indexPos = indexPos + 1
 
     newWb.save(faultOrderExcelPath)
 
-#处理未符合标准订单，param： list[tuple（订单号，pddIdPos,sku，支付时间，商品总价,商品名称）
-def dealFaultData(faultList,actData):
+#处理未符合标准订单，param： list[tuple（订单号，pddIdPos,sku，支付时间，商品总价,商品名称）; toReturn 是最终返回的采购订单结果
+def dealFaultData(originalFaultList,actData):
+    toReturn = list()
+    tmpFaultList = copy.copy(originalFaultList)
+    size = len(tmpFaultList)
+    index = 0
     #遍历所有的未符合标准订单
-    for item in faultList:
-        #获取支付时间
-        tmpPayTime = item[3]
+    while index < size:
+    # for item in faultList:
+        item = originalFaultList[index]
         #初始化时间差
         lessDistance = 99999999
+        #临时结果
+        tmpInf = None
+        #临时数据指针
+        tmpIndex = None
+        #初始化订单号
+        ordrNum = item[0]
+        #初始化pdd id
+        tmpPddId = item[1]
+        #初始化sku
+        tmpPddSku = item[2]
+        # 获取支付时间
+        tmpPayTime = item[3]
+        #初始化订单总价
+        tmpPddProductAllPrice = item[4]
+        #初始化商品名称
+        tmpPddProName = item[5]
+
         #遍历活动信息
         for eachAct in actData:
+            #初始化活动表信息
+            # 活动编码
+            tmpActCode = eachAct[0]
+            # 开始时间
+            tmpBeginTime = eachAct[1]
+            # 结束时间
+            tmpEndTime = eachAct[2]
+            # pdd 的商品 id
+            tmpPddId_actSheet = eachAct[3]
+            # 商品的sku编码
+            tmpSku_actSheet = eachAct[4]
+            # 活动价
+            tmpActPrice = eachAct[5]
+            # 成本价
+            tmpPurchasePrice = eachAct[6]
+            # 平台补贴
+            tmpPlatformReword = eachAct[7]
+            # 店铺补贴
+            tmpStoreReword = eachAct[8]
+
+            #debugger
+
+
             #判断基本条件（）
-            pass
-        pass
+            #支付时晚于活动开始时间
+            if tmpPayTime > tmpBeginTime:
+                # 如果是AirPods
+                if "AirPods" in tmpPddProName:
+                    # 是否是: 同样的sku && 活动价等于商品总价 && 商品id一致
+                    if tmpPddId_actSheet == tmpPddId and (
+                            tmpSku_actSheet == tmpPddSku and tmpActPrice == tmpPddProductAllPrice):
+
+                        skuToReturn = tmpSku_actSheet
+                        # 成本价格
+                        basePriceToReturn = tmpPurchasePrice
+                        # 商品名称
+                        productNameToReturn = tmpPddProName
+
+                        #距离活动结束时间时长
+                        tmpDistance = tmpPayTime.timestamp() - tmpEndTime.timestamp()
+
+                        if lessDistance > tmpDistance:
+                            tmpInf = (ordrNum, tmpActCode, skuToReturn, basePriceToReturn, productNameToReturn,
+                                  tmpPlatformReword, tmpStoreReword)
+                            lessDistance = tmpDistance
+                            tmpIndex = index
+
+                # 如果是iPad
+                elif "iPad" in tmpPddProName:
+                    # 是否是: 同样的sku
+                    if tmpSku_actSheet == tmpPddSku:
+                        # 活动价等于商品总价
+                        if tmpActPrice == tmpPddProductAllPrice:
+                            # sku
+                            skuToReturn = tmpSku_actSheet
+                            # 成本价格
+                            basePriceToReturn = tmpPurchasePrice
+                            # 商品名称
+                            productNameToReturn = tmpPddProName
+
+                            # 距离活动结束时间时长
+                            tmpDistance = tmpPayTime.timestamp() - tmpEndTime.timestamp()
+
+                            if lessDistance > tmpDistance:
+                                tmpInf = (ordrNum, tmpActCode, skuToReturn, basePriceToReturn, productNameToReturn,
+                                          tmpPlatformReword, tmpStoreReword)
+                                lessDistance = tmpDistance
+                                tmpIndex = index
+
+                elif "iPhone" in tmpPddProName:
+                    # 是否是: 同样的sku && 活动价等于商品总价 && 商品id一致
+                    if tmpPddId_actSheet == tmpPddId and (
+                            tmpSku_actSheet == tmpPddSku and tmpActPrice == tmpPddProductAllPrice):
+
+                        skuToReturn = tmpSku_actSheet
+                        # 成本价格
+                        basePriceToReturn = tmpPurchasePrice
+                        # 商品名称
+                        productNameToReturn = tmpPddProName
+
+                        # 距离活动结束时间时长
+                        tmpDistance = tmpPayTime.timestamp() - tmpEndTime.timestamp()
+
+                        if lessDistance > tmpDistance:
+                            tmpInf = (ordrNum, tmpActCode, skuToReturn, basePriceToReturn, productNameToReturn,
+                                      tmpPlatformReword, tmpStoreReword)
+                            lessDistance = tmpDistance
+                            tmpIndex = index
+
+                # 如果是其他
+                else:
+                    print("其他商品：" + tmpPddProName)
+
+        if tmpInf is not None:
+            toReturn.append(tmpInf)
+            tmpFaultList.remove(item)
+            print(tmpFaultList)
+
+        index = index + 1
+    return toReturn,tmpFaultList
 
 jieDanExcelPath = "C:/Users/admin/Desktop/截单/jiedan.xlsx"
 jieDanOriginalOrderNumPos = 3
@@ -427,12 +545,18 @@ purchaseExcel=runFinalWork(financeDict,pddExcel,range)
 #检查未符合标准的订单
 faultList = checkList(pddExcel,purchaseExcel)
 
+#处理未在活动时间内支付的订单
+faultListDealed,filterFaultList = dealFaultData(faultList,financeDict)
+
+#把未在活动时间内支付的订单的处理结果添加进正常订单结果
+purchaseExcel.extend(faultListDealed)
+
 #分类汇总数据
 finalInfo = clssify(purchaseExcel)
 
 #生成未符合标准商品（疑似未在活动内的订单）
 faultOrderExcelPath = "C:/Users/admin/Desktop/截单/未符合标准商品（疑似未在活动内的订单）.xlsx"
-creatFaultListExcel(faultList,faultOrderExcelPath)
+creatFaultListExcel(filterFaultList,faultOrderExcelPath)
 
 outputPath = "C:/Users/admin/Desktop/截单/pddTestWithActCode.xlsx"
 markActCode(purchaseExcel,pddExcelPath,pddOrderNumPos,outputPath)
@@ -457,8 +581,8 @@ print(purchaseExcel)
 print()
 
 print("______________未符合标准商品（疑似未在活动内的订单）:________")
-print(len(faultList))
-print(faultList)
+print(len(filterFaultList))
+print(filterFaultList)
 print()
 
 print("______________分类汇总最终结果 finalInfo________")
