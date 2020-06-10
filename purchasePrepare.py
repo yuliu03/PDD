@@ -104,7 +104,8 @@ def getPddExcelByFilter(excelPath,beginRow,originalOrderNumList,pddOrderNumPos,p
 def getSecctionExcel(excelPath,sheetName,beginRow,secctionCodePos,secctionBeginTimePos,secctionEndTimePos,secctionPddIdPos,secctionSkuPos,secctionPricePos,secctionPurchasePricePos,filterInfo,platformRewardPos,storeRewardPos):
     print("读取活动备案表中...")
     workBook = load_workbook(excelPath)
-    sheet = workBook[sheetName]
+    # sheet = workBook[sheetName]
+    sheet = workBook.active
     rows = sheet.max_row
     columns = sheet.max_column
     listToReturn = list()
@@ -285,8 +286,8 @@ def checkList(pddListBefore,pddListAfter):
 
     return listToReturn
 
-#标记pdd Excel 中订单对应的活动编码()
-def markActCode(purchaseExcel, pddExcelPath,ordNumPos,outputPath):
+#标记pdd Excel 中订单对应的活动编码:param: 采购单，pdd文件地址，pdd订单号位置，输出位置，pdd商家实际收入位置
+def markActCode(purchaseExcel, pddExcelPath,ordNumPos,outputPath,pddRealIncomePos):
     print("读取拼多多明细表中...")
     workBook = load_workbook(pddExcelPath)
     sheet = workBook.active
@@ -297,6 +298,7 @@ def markActCode(purchaseExcel, pddExcelPath,ordNumPos,outputPath):
     toWriteStoreRewordPos = cols + 3
     toWriteBasicPrice = cols + 4
     toWriteFinalReword =cols + 5
+    toWriteRealIncome = cols + 6
     #拼多多对账明细的店铺补贴字段位置
     pdd_storeRewordPos = 5
 
@@ -305,6 +307,7 @@ def markActCode(purchaseExcel, pddExcelPath,ordNumPos,outputPath):
     sheet.cell(row=1, column=toWriteStoreRewordPos, value="活动备案表_店铺补贴")
     sheet.cell(row=1, column=toWriteBasicPrice, value="活动备案表_成本")
     sheet.cell(row=1, column=toWriteFinalReword, value="补贴金额")
+    sheet.cell(row=1, column=toWriteRealIncome, value="千6费用")
     beginRow = 2
 
     i = beginRow
@@ -319,7 +322,8 @@ def markActCode(purchaseExcel, pddExcelPath,ordNumPos,outputPath):
                 sheet.cell(row=i, column=toWriteBasicPrice, value=item[3])
                 sheet.cell(row=i, column=toWritePlatformRewordPos, value=item[5])
                 sheet.cell(row=i, column=toWriteStoreRewordPos, value=item[6])
-
+                realIncome = float(sheet.cell(row=i, column=pddRealIncomePos).value)
+                sheet.cell(row=i, column=toWriteRealIncome, value=(realIncome * 0.006))
                 #活动编号不为空
                 if item[1] is not None and item[1] != "":
                     #店铺补贴不为空 && 店铺补贴等于多多对账明细的店铺补贴
@@ -337,6 +341,8 @@ def markActCode(purchaseExcel, pddExcelPath,ordNumPos,outputPath):
 
 #生成未符合标准订单表
 def creatFaultListExcel(faultList,faultOrderExcelPath):
+    if len(faultList)==0:
+        return 0
     print("开始生成未符合标准订单表")
     newWb = Workbook()
 
@@ -559,7 +565,8 @@ faultOrderExcelPath = "C:/Users/admin/Desktop/截单/未符合标准商品（疑
 creatFaultListExcel(filterFaultList,faultOrderExcelPath)
 
 outputPath = "C:/Users/admin/Desktop/截单/pddTestWithActCode.xlsx"
-markActCode(purchaseExcel,pddExcelPath,pddOrderNumPos,outputPath)
+pddRealIncomePos = 12
+markActCode(purchaseExcel,pddExcelPath,pddOrderNumPos,outputPath,pddRealIncomePos)
 
 print("________备案表获取结果 financeDict________________")
 print(len(financeDict))
