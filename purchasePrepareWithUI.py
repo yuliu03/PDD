@@ -2,6 +2,10 @@ import copy
 import datetime
 
 from openpyxl import load_workbook, Workbook
+from tkinter import Tk, Button, Entry, Label, IntVar, Checkbutton, Radiobutton
+from tkinter import filedialog
+from time import strftime, localtime
+import os
 
 #判断是否在活动区间
 def checkTimeRange(tmpPddPayTime, tmpBeginTime, tmpEndTime, range):
@@ -312,7 +316,7 @@ def markActCode(purchaseExcel, pddExcelPath,ordNumPos,outputPath,pddRealIncomePo
     i = beginRow
     while i <= rows:
         print("填充补贴、活动编号等数据到拼多多明细表："+str(i)+"/"+str(rows))
-        ordNum = str(sheet.cell(row=i,column=ordNumPos).value.strip().strip(filterInfo))
+        ordNum = str(sheet.cell(row=i,column=ordNumPos).value.strip().strip("\t"))
         #list[(订单编号，活动编号，sku，成本价格，商品名称，平台补贴，店铺补贴)]
         for item in purchaseExcel:
             # sheet.cell(row=i, column=toWritePos, value="item[1]")
@@ -505,98 +509,161 @@ def dealFaultData(originalFaultList,actData):
         index = index + 1
     return toReturn,tmpFaultList
 
-#截单数据准备
-jieDanExcelPath = "C:/Users/admin/Desktop/截单/jiedan.xlsx"
-jieDanOriginalOrderNumPos = 3
-beginRow = 2
-filterInfo = "\t"
+def runMainWork(jieDanExcelPath,pddExcelPath,pddFinanceExcelPath,outputPath):
+    #截单数据准备
+    # jieDanExcelPath = "C:/Users/admin/Desktop/截单/jiedan.xlsx"
+    jieDanOriginalOrderNumPos = 3
+    beginRow = 2
+    filterInfo = "\t"
 
-jieDanList = getJieDanExcel(jieDanExcelPath,jieDanOriginalOrderNumPos,filterInfo,beginRow)
-jieDanListSize = len(jieDanList)
+    jieDanList = getJieDanExcel(jieDanExcelPath,jieDanOriginalOrderNumPos,filterInfo,beginRow)
 
-pddExcelPath = "C:/Users/admin/Desktop/截单/pddTest.xlsx"
-originalOrderNumList = jieDanList
-pddOrderNumPos = 2
-pddSkuPos = 33
-pddPayTimePos = 23
-productPricePos = 4
-pddIdPos = 29
-proNamePos = 1
-pddFilterInfo = "\t"
-beginRow = 2
-pddExcel = getPddExcelByFilter(pddExcelPath,beginRow,originalOrderNumList,pddOrderNumPos,pddIdPos,pddSkuPos,pddPayTimePos,productPricePos,proNamePos,pddFilterInfo)
-
-
-pddFinanceExcelPath = "C:/Users/admin/Desktop/截单/huodong.xlsx"
-sheetName = "活动备案"
-secctionCodePos = 3
-secctionBeginTimePos = 4
-secctionEndTimePos = 5
-secctionSkuPos = 6
-secctionPricePos = 11
-secctionPurchasePricePos = 9
-secctionPddIdPos = 2
-platformRewardPos = 13
-storeRewardPos = 14
-filterInfo = "\t"
-beginRow = 2
-financeDict = getSecctionExcel(pddFinanceExcelPath,sheetName,beginRow,secctionCodePos,secctionBeginTimePos,secctionEndTimePos,secctionPddIdPos,secctionSkuPos,secctionPricePos,secctionPurchasePricePos,filterInfo,platformRewardPos,storeRewardPos)
-print(financeDict)
+    # pddExcelPath = "C:/Users/admin/Desktop/截单/pddTest.xlsx"
+    originalOrderNumList = jieDanList
+    pddOrderNumPos = 2
+    pddSkuPos = 33
+    pddPayTimePos = 23
+    productPricePos = 4
+    pddIdPos = 29
+    proNamePos = 1
+    pddFilterInfo = "\t"
+    beginRow = 2
+    pddExcel = getPddExcelByFilter(pddExcelPath,beginRow,originalOrderNumList,pddOrderNumPos,pddIdPos,pddSkuPos,pddPayTimePos,productPricePos,proNamePos,pddFilterInfo)
 
 
-#活动浮动区间 秒
-range = 0
-purchaseExcel=runFinalWork(financeDict,pddExcel,range)
-
-#检查未符合标准的订单
-faultList = checkList(pddExcel,purchaseExcel)
-
-#处理未在活动时间内支付的订单
-faultListDealed,filterFaultList = dealFaultData(faultList,financeDict)
-
-#把未在活动时间内支付的订单的处理结果添加进正常订单结果
-purchaseExcel.extend(faultListDealed)
-
-#分类汇总数据
-finalInfo = clssify(purchaseExcel)
-
-#生成未符合标准商品（疑似未在活动内的订单）
-faultOrderExcelPath = "C:/Users/admin/Desktop/截单/未符合标准商品（疑似未在活动内的订单）.xlsx"
-# creatFaultListExcel(filterFaultList,faultOrderExcelPath)
-
-outputPath = "C:/Users/admin/Desktop/截单/pddTestWithActCode.xlsx"
-pddRealIncomePos = 12
-markActCode(purchaseExcel,pddExcelPath,pddOrderNumPos,outputPath,pddRealIncomePos)
-
-print("________备案表获取结果 financeDict________________")
-print(len(financeDict))
-print(financeDict)
-print()
-
-print("_________截单表内不符合拼多多订单表内信息 jieDanList______________")
-print(jieDanList)
-print()
-
-print("_________拼多多过滤截单后数据 pddExcel_____________")
-print(len(pddExcel))
-print(pddExcel)
-print()
-
-print("____________对比备案表结果 finalExcel________")
-print(len(purchaseExcel))
-print(purchaseExcel)
-print()
-
-print("______________未符合标准商品（疑似未在活动内的订单）:________")
-print(len(filterFaultList))
-print(filterFaultList)
-print()
-
-print("______________分类汇总最终结果 finalInfo________")
-print(len(finalInfo))
-print(finalInfo)
-print()
+    # pddFinanceExcelPath = "C:/Users/admin/Desktop/截单/huodong.xlsx"
+    sheetName = "活动备案"
+    secctionCodePos = 3
+    secctionBeginTimePos = 4
+    secctionEndTimePos = 5
+    secctionSkuPos = 6
+    secctionPricePos = 11
+    secctionPurchasePricePos = 9
+    secctionPddIdPos = 2
+    platformRewardPos = 13
+    storeRewardPos = 14
+    filterInfo = "\t"
+    beginRow = 2
+    financeDict = getSecctionExcel(pddFinanceExcelPath,sheetName,beginRow,secctionCodePos,secctionBeginTimePos,secctionEndTimePos,secctionPddIdPos,secctionSkuPos,secctionPricePos,secctionPurchasePricePos,filterInfo,platformRewardPos,storeRewardPos)
+    print(financeDict)
 
 
-outFilepath = "C:/Users/admin/Desktop/截单/outPut.xlsx"
-createExcel(outFilepath,finalInfo)
+    #活动浮动区间 秒
+    range = 0
+    purchaseExcel=runFinalWork(financeDict,pddExcel,range)
+
+    #检查未符合标准的订单
+    faultList = checkList(pddExcel,purchaseExcel)
+
+    #处理未在活动时间内支付的订单
+    faultListDealed,filterFaultList = dealFaultData(faultList,financeDict)
+
+    #把未在活动时间内支付的订单的处理结果添加进正常订单结果
+    purchaseExcel.extend(faultListDealed)
+
+    #分类汇总数据
+    finalInfo = clssify(purchaseExcel)
+
+    #生成未符合标准商品（疑似未在活动内的订单）
+    # faultOrderExcelPath = "C:/Users/admin/Desktop/截单/未符合标准商品（疑似未在活动内的订单）.xlsx"
+    creatFaultListExcel(filterFaultList,outputPath+"未符合标准商品（疑似未在活动内的订单）.xlsx")
+
+    # outputPath = "C:/Users/admin/Desktop/截单/pddTestWithActCode.xlsx"
+    pddRealIncomePos = 12
+    markActCode(purchaseExcel,pddExcelPath,pddOrderNumPos,outputPath+"pddTestWithActCode.xlsx",pddRealIncomePos)
+
+    print("________备案表获取结果 financeDict________________")
+    print(len(financeDict))
+    print(financeDict)
+    print()
+
+    print("_________截单表内不符合拼多多订单表内信息 jieDanList______________")
+    print(jieDanList)
+    print()
+
+    print("_________拼多多过滤截单后数据 pddExcel_____________")
+    print(len(pddExcel))
+    print(pddExcel)
+    print()
+
+    print("____________对比备案表结果 finalExcel________")
+    print(len(purchaseExcel))
+    print(purchaseExcel)
+    print()
+
+    print("______________未符合标准商品（疑似未在活动内的订单）:________")
+    print(len(filterFaultList))
+    print(filterFaultList)
+    print()
+
+    print("______________分类汇总最终结果 finalInfo________")
+    print(len(finalInfo))
+    print(finalInfo)
+    print()
+
+
+    # outFilepath = "C:/Users/admin/Desktop/截单/outPut.xlsx"
+    createExcel(outputPath+"采购单.xlsx",finalInfo)
+
+############ui function##############
+def getInputPath(input_path_ui):
+    root = Tk()
+    root.withdraw()
+    file_path = filedialog.askopenfilename()
+    # print(file_path) # 打印文件的路径
+    input_path_ui.insert(0, eval(repr(file_path).replace('\\\\', '/')))
+
+
+def save(pdd_input_path_entry,huodong_input_path_entry,jiedan_input_path_entry):
+    readFilepath = pdd_input_path_entry.get()
+    # print(readFilepath)
+    tmpPathByList = readFilepath.split("/")
+    tmpPathByList[len(tmpPathByList)-1] = strftime("%Y%m%d%H%M%S", localtime())
+    # print(tmpPathByList)
+
+    #list 转 str 路径
+    size = len(tmpPathByList)
+    i = 0
+    outputPath = ""
+    while i < size - 1:
+        outputPath = outputPath + tmpPathByList[i] + "/"
+        i = i + 1
+    outputPath = outputPath + strftime("%Y-%m-%d-%H-%M-%S", localtime())
+    os.mkdir(outputPath)
+    outputPath = outputPath + "/"
+
+    print(outputPath)
+
+    runMainWork(jiedan_input_path_entry.get(),pdd_input_path_entry.get(),huodong_input_path_entry.get(),outputPath)
+
+root = Tk()
+v=IntVar()
+
+baseRow = 0
+baseColLeft = 0
+
+# 通过command属性来指定Button的回调函数
+pddRow = baseRow
+Label(root, text="拼多多订单路径: ").grid(row=pddRow,column=baseColLeft)
+pdd_input_path_entry=Entry(root,width=60)
+pdd_input_path_entry.grid(row=pddRow,column=baseColLeft + 1)
+pddButton = Button(root, text='拼多多订单路径', command=lambda: getInputPath(pdd_input_path_entry),width=15).grid(row=pddRow,column=baseColLeft + 2)
+
+
+huodongRow = pddRow+1
+Label(root, text="活动备案表路径: ").grid(row=huodongRow,column=baseColLeft)
+huodong_input_path_entry = Entry(root,width=60)
+huodong_input_path_entry.grid(row=huodongRow,column=baseColLeft + 1)
+Button(root, text='活动备案表路径', command=lambda: getInputPath(huodong_input_path_entry),width=15).grid(row=huodongRow,column=baseColLeft + 2)
+
+jiedanRow = huodongRow + 1
+Label(root, text="截单表路径: ").grid(row=jiedanRow,column=baseColLeft)
+jiedan_input_path_entry=Entry(root,width=60)
+jiedan_input_path_entry.grid(row=jiedanRow,column=baseColLeft + 1)
+Button(root, text='获取截单路径', command=lambda: getInputPath(jiedan_input_path_entry),width=15).grid(row=jiedanRow,column=baseColLeft + 2)
+
+
+saveButton=Button(root, text='保存', command=lambda: save(pdd_input_path_entry,huodong_input_path_entry,jiedan_input_path_entry),width=15)
+saveButton.grid(row=baseRow+5,column=baseColLeft+2)
+
+root.mainloop()
